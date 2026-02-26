@@ -9,11 +9,15 @@
 mvn clean package -DskipTests
 ```
 
+Open `http://localhost:8080` in a browser to see the **live notification dashboard** alongside console logs.
+
+![Dashboard](docs/dashboard.png)
+
 ---
 
 ## 1. Realtime Pipeline
 
-Tests that ingesting an event matching a REALTIME rule produces a notification log.
+Tests that ingesting an event matching a REALTIME rule produces a notification.
 
 ### Start the app
 
@@ -57,19 +61,21 @@ curl -s -X POST "http://localhost:8080/api/v1/events" \
 
 ### Verify
 
-In the app logs you should see:
+**Console:** you should see a log line like:
 
 ```
 NOTIFICATION FIRED: tenantId=tenant-1, ruleName=Any 5xx, ruleType=REALTIME, statusCode=500, path=/api/payments, env=prod
 ```
 
-Sending an event with `statusCode: 200` should produce no notification.
+**Dashboard:** a red REALTIME card appears instantly at `http://localhost:8080`.
+
+Sending an event with `statusCode: 200` should produce no notification in either place.
 
 ---
 
 ## 2. Batch Storage
 
-Tests that ingested events are flushed to JSONL files on disk.
+Tests that ingested events are flushed to JSONL files on disk. No rules needed -- all events go to the batch queue automatically.
 
 ### Start the app with a short flush interval
 
@@ -164,18 +170,16 @@ done
 
 ### Verify
 
-Wait ~20 seconds (5s for flush + 15s for aggregation). In the logs you should see:
+Wait ~20 seconds (5s for flush + 15s for aggregation).
+
+**Console:** you should see:
 
 ```
 Batch rule 'High 5xx rate': count=3, threshold=2
 BATCH THRESHOLD BREACHED: tenantId=tenant-1, ruleName=High 5xx rate, threshold=2, actualCount=3, windowMinutes=60
 ```
 
----
-
-## 4. Notification Dashboard
-
-Open `http://localhost:8080` in a browser while the app is running. Notifications from both realtime and batch pipelines appear as live cards via SSE. Use the curl commands from sections above to trigger events.
+**Dashboard:** an orange BATCH card appears at `http://localhost:8080` showing the threshold breach details.
 
 ---
 

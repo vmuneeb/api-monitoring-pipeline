@@ -48,7 +48,19 @@ public class BatchRuleQueryBuilder {
     String whereClause = buildWhereClause(rule);
 
     StringBuilder sb = new StringBuilder();
-    sb.append("SELECT COUNT(*) FROM read_json_auto('").append(fileGlob).append("')");
+    sb.append("SELECT COUNT(*) FROM read_json_auto(");
+    String[] paths = fileGlob.split(",");
+    if (paths.length == 1) {
+      sb.append("'").append(paths[0]).append("'");
+    } else {
+      sb.append("[");
+      for (int i = 0; i < paths.length; i++) {
+        if (i > 0) sb.append(", ");
+        sb.append("'").append(paths[i]).append("'");
+      }
+      sb.append("]");
+    }
+    sb.append(")");
     sb.append(" WHERE received_at >= ").append(windowStart.toEpochMilli());
 
     if (whereClause != null && !whereClause.isBlank()) {
