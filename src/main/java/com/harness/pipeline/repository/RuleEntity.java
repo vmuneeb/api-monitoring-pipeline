@@ -47,6 +47,12 @@ public class RuleEntity {
   @Column(name = "notification_json")
   private String notificationJson;
 
+  @Column(name = "window_minutes")
+  private Integer windowMinutes;
+
+  @Column(name = "count_threshold")
+  private Long countThreshold;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -117,6 +123,22 @@ public class RuleEntity {
 
   public void setNotificationJson(String notificationJson) {
     this.notificationJson = notificationJson;
+  }
+
+  public Integer getWindowMinutes() {
+    return windowMinutes;
+  }
+
+  public void setWindowMinutes(Integer windowMinutes) {
+    this.windowMinutes = windowMinutes;
+  }
+
+  public Long getCountThreshold() {
+    return countThreshold;
+  }
+
+  public void setCountThreshold(Long countThreshold) {
+    this.countThreshold = countThreshold;
   }
 
   public Instant getCreatedAt() {

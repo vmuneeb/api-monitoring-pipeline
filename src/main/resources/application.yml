@@ -21,6 +21,7 @@ pipeline:
   batch:
     base-path: /tmp/api-event-pipeline/batch-events
     flush-interval-ms: 600000
+    aggregation-interval-ms: 300000
 
 management:
   endpoints:

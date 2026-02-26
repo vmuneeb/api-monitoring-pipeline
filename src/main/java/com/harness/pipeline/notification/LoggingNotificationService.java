@@ -27,5 +27,16 @@ public class LoggingNotificationService implements NotificationService {
         env
     );
   }
-}
 
+  @Override
+  public void notifyBatchThresholdBreached(RuleDto rule, long count) {
+    log.warn(
+        "BATCH THRESHOLD BREACHED: tenantId={}, ruleName={}, threshold={}, actualCount={}, windowMinutes={}",
+        rule.tenantId(),
+        rule.name(),
+        rule.countThreshold(),
+        count,
+        rule.windowMinutes()
+    );
+  }
+}

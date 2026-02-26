@@ -15,5 +15,7 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
   List<RuleEntity> findByTenantIdAndTypeAndEnabled(String tenantId, RuleType type, boolean enabled);
 
   Optional<RuleEntity> findByIdAndTenantId(UUID id, String tenantId);
+
+  List<RuleEntity> findByTypeAndEnabled(RuleType type, boolean enabled);
 }
 

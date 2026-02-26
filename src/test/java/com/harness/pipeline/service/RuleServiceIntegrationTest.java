@@ -127,6 +127,8 @@ class RuleServiceIntegrationTest {
         ConditionGroupOperator.OR,
         created.conditionGroups(),
         created.notificationConfig(),
+        null,
+        null,
         created.createdAt(),
         created.updatedAt()
     );
@@ -214,6 +216,8 @@ class RuleServiceIntegrationTest {
         groupOperator,
         List.of(group),
         notification,
+        null,
+        null,
         null,
         null
     );

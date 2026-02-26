@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS rules (
   group_operator VARCHAR(8) NOT NULL,
   conditions_json CLOB NOT NULL,
   notification_json CLOB,
+  window_minutes INT,
+  count_threshold BIGINT,
   created_at TIMESTAMP NOT NULL,
   updated_at TIMESTAMP NOT NULL
 );

@@ -92,6 +92,8 @@ class RealtimeWorkerTest {
         ConditionGroupOperator.AND,
         List.of(group),
         new NotificationConfigDto("LOG", "console"),
+        null,
+        null,
         Instant.now(),
         Instant.now()
     );

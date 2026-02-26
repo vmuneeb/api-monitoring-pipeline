@@ -15,7 +15,8 @@ public record RuleDto(
     ConditionGroupOperator groupOperator,
     List<ConditionGroupDto> conditionGroups,
     NotificationConfigDto notificationConfig,
+    Integer windowMinutes,
+    Long countThreshold,
     Instant createdAt,
     Instant updatedAt
 ) {}
-

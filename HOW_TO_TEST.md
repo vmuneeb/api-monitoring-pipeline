@@ -1,22 +1,32 @@
-## How to Test Realtime Alerts
+# How to Test
 
-### 1. Start the app
+## Prerequisites
 
-From the project root:
+- Java 17+
+- Maven
 
 ```bash
-mvn clean package
+mvn clean package -DskipTests
+```
+
+---
+
+## 1. Realtime Pipeline
+
+Tests that ingesting an event matching a REALTIME rule produces a notification log.
+
+### Start the app
+
+```bash
 java -jar target/api-event-pipeline-0.0.1-SNAPSHOT.jar
 ```
 
-### 2. Create a simple realtime rule
+### Create a realtime rule
 
 ```bash
 curl -s -X POST "http://localhost:8080/api/v1/tenants/tenant-1/rules" \
   -H "Content-Type: application/json" \
   -d '{
-    "id": null,
-    "tenantId": null,
     "name": "Any 5xx",
     "type": "REALTIME",
     "enabled": true,
@@ -27,13 +37,11 @@ curl -s -X POST "http://localhost:8080/api/v1/tenants/tenant-1/rules" \
         { "field": "RESPONSE_STATUS_CODE", "operator": "GREATER_THAN_OR_EQUAL", "value": "500" }
       ]
     }],
-    "notificationConfig": { "channel": "LOG", "destination": "console" },
-    "createdAt": null,
-    "updatedAt": null
-  }'
+    "notificationConfig": { "channel": "LOG", "destination": "console" }
+  }' | python3 -m json.tool
 ```
 
-### 3. Send an event that should trigger the rule
+### Send a matching event
 
 ```bash
 curl -s -X POST "http://localhost:8080/api/v1/events" \
@@ -41,140 +49,86 @@ curl -s -X POST "http://localhost:8080/api/v1/events" \
   -H "X-Tenant-Id: tenant-1" \
   -d '{
     "timestamp": "2026-02-26T12:00:00Z",
-    "request": {
-      "method": "GET",
-      "host": "api.example.com",
-      "path": "/api/payments",
-      "queryString": "page=1",
-      "headers": {"Content-Type": "application/json"},
-      "body": "{\"amount\":100}",
-      "sizeBytes": 20
-    },
-    "response": {
-      "statusCode": 500,
-      "responseTimeMs": 200,
-      "headers": {},
-      "body": "{\"error\":\"internal\"}",
-      "sizeBytes": 10
-    },
-    "metadata": {
-      "serviceId": "svc-1",
-      "serviceName": "payment-svc",
-      "environment": "prod",
-      "region": "us-east-1",
-      "hostIp": "127.0.0.1",
-      "traceId": "trace-1",
-      "tags": {"team": "payments"}
-    }
+    "request": { "method": "GET", "host": "api.example.com", "path": "/api/payments" },
+    "response": { "statusCode": 500, "responseTimeMs": 200 },
+    "metadata": { "serviceId": "svc-1", "environment": "prod", "region": "us-east-1" }
   }'
 ```
 
-**Verify**: in the app logs you should see a line like:
+### Verify
 
-```text
-NOTIFICATION FIRED: tenantId=tenant-1, ruleName=Any 5xx, ...
+In the app logs you should see:
+
+```
+NOTIFICATION FIRED: tenantId=tenant-1, ruleName=Any 5xx, ruleType=REALTIME, statusCode=500, path=/api/payments, env=prod
 ```
 
-If you send the same request with `statusCode: 200`, no such line should appear.
+Sending an event with `statusCode: 200` should produce no notification.
 
 ---
 
-## How to Test Batch Storage
+## 2. Batch Storage
 
-### 1. Start the app with a short batch interval
+Tests that ingested events are flushed to JSONL files on disk.
+
+### Start the app with a short flush interval
 
 ```bash
-export SPRING_APPLICATION_JSON='{"pipeline":{"batch":{"flush-interval-ms":10000}}}'
-mvn clean package
-java -jar target/api-event-pipeline-0.0.1-SNAPSHOT.jar
+java -jar target/api-event-pipeline-0.0.1-SNAPSHOT.jar \
+  --pipeline.batch.flush-interval-ms=5000
 ```
 
-### 2. Send a few events
+### Send a few events
 
 ```bash
-for i in {1..5}; do
+for i in 1 2 3 4 5; do
   curl -s -X POST "http://localhost:8080/api/v1/events" \
     -H "Content-Type: application/json" \
     -H "X-Tenant-Id: tenant-1" \
     -d '{
       "timestamp": "2026-02-26T12:00:00Z",
-      "request": {
-        "method": "GET",
-        "host": "api.example.com",
-        "path": "/api/payments",
-        "queryString": "page=1",
-        "headers": {"Content-Type": "application/json"},
-        "body": "{\"amount\":100}",
-        "sizeBytes": 20
-      },
-      "response": {
-        "statusCode": 200,
-        "responseTimeMs": 150,
-        "headers": {},
-        "body": "{}",
-        "sizeBytes": 2
-      },
-      "metadata": {
-        "serviceId": "svc-1",
-        "serviceName": "payment-svc",
-        "environment": "prod",
-        "region": "us-east-1",
-        "hostIp": "127.0.0.1",
-        "traceId": "trace-1",
-        "tags": {"team": "payments"}
-      }
-    }' >/dev/null
+      "request": { "method": "GET", "host": "api.example.com", "path": "/api/payments" },
+      "response": { "statusCode": 200, "responseTimeMs": 150 },
+      "metadata": { "serviceId": "svc-1", "environment": "prod", "region": "us-east-1" }
+    }' > /dev/null
 done
 ```
 
-### 3. Verify batch files on disk
+### Verify
 
-Wait 20–30 seconds, then in another terminal:
-
-```bash
-BASE=/tmp/api-event-pipeline/batch-events
-find "$BASE" -type f -name '*.jsonl'
-```
-
-You should see something like:
-
-```text
-/tmp/api-event-pipeline/batch-events/tenant_id=tenant-1/year=2026/month=02/day=26/events-<timestamp>-<uuid>.jsonl
-```
-
-Inspect a few lines:
+Wait ~10 seconds, then check:
 
 ```bash
-head -n 5 /tmp/api-event-pipeline/batch-events/tenant_id=tenant-1/year=2026/month=02/day=26/events-*.jsonl
+find /tmp/api-event-pipeline/batch-events -name '*.jsonl'
+head -n 3 /tmp/api-event-pipeline/batch-events/tenant_id=tenant-1/year=2026/month=02/day=26/events-*.jsonl
 ```
 
-You should see one JSON object per line with flattened event fields (tenant, timestamps, path, status, latency, environment, etc.). This confirms that the batch pipeline is draining the queue and persisting time-series data.
+Each line is a flattened JSON object with fields like `event_id`, `status_code`, `response_time_ms`, etc.
 
-## How to Test the Realtime Pipeline
+---
 
-### 1. Build and run the application
+## 3. Batch Aggregation (DuckDB)
 
-From the project root:
+Tests that a BATCH rule evaluates a `COUNT(*)` query over stored JSONL files and fires a notification when the count exceeds the threshold.
+
+### Start the app with short intervals
 
 ```bash
-mvn clean package
-java -jar target/api-event-pipeline-0.0.1-SNAPSHOT.jar
+java -jar target/api-event-pipeline-0.0.1-SNAPSHOT.jar \
+  --pipeline.batch.flush-interval-ms=5000 \
+  --pipeline.batch.aggregation-interval-ms=15000
 ```
 
-The app starts on `http://localhost:8080`.
+This flushes events to disk every 5s and runs batch rule aggregation every 15s.
 
-### 2. Create a realtime rule
-
-In a new terminal, create a simple "any 5xx" realtime rule for `tenant-1`:
+### Create a BATCH rule
 
 ```bash
 curl -s -X POST "http://localhost:8080/api/v1/tenants/tenant-1/rules" \
   -H "Content-Type: application/json" \
   -d '{
-    "id": null,
-    "tenantId": null,
-    "name": "Any 5xx",
-    "type": "REALTIME",
+    "name": "High 5xx rate",
+    "type": "BATCH",
     "enabled": true,
     "groupOperator": "AND",
     "conditionGroups": [{
@@ -184,245 +138,45 @@ curl -s -X POST "http://localhost:8080/api/v1/tenants/tenant-1/rules" \
       ]
     }],
     "notificationConfig": { "channel": "LOG", "destination": "console" },
-    "createdAt": null,
-    "updatedAt": null
-  }'
+    "windowMinutes": 60,
+    "countThreshold": 2
+  }' | python3 -m json.tool
 ```
 
-You should get back the created rule as JSON.
+This rule says: "if there are >= 2 events with status code >= 500 in the last 60 minutes, fire a notification."
 
-### 3. Ingest an event that should fire the rule
-
-Send an event for `tenant-1` with a 5xx status:
+### Send matching events
 
 ```bash
-curl -s -X POST "http://localhost:8080/api/v1/events" \
-  -H "Content-Type: application/json" \
-  -H "X-Tenant-Id: tenant-1" \
-  -d '{
-    "timestamp": "2026-02-26T12:00:00Z",
-    "request": {
-      "method": "GET",
-      "host": "api.example.com",
-      "path": "/api/payments",
-      "queryString": "page=1",
-      "headers": {"Content-Type": "application/json"},
-      "body": "{\"amount\":100}",
-      "sizeBytes": 20
-    },
-    "response": {
-      "statusCode": 500,
-      "responseTimeMs": 200,
-      "headers": {},
-      "body": "{\"error\":\"internal\"}",
-      "sizeBytes": 10
-    },
-    "metadata": {
-      "serviceId": "svc-1",
-      "serviceName": "payment-svc",
-      "environment": "prod",
-      "region": "us-east-1",
-      "hostIp": "127.0.0.1",
-      "traceId": "trace-1",
-      "tags": {"team": "payments"}
-    }
-  }'
-```
-
-Response should be `202 Accepted` with a JSON body containing an `eventId`.
-
-### 4. Verify notifications in logs
-
-In the terminal where the JAR is running, you should see log lines similar to:
-
-```text
-NOTIFICATION FIRED: tenantId=tenant-1, ruleName=Any 5xx, ruleType=REALTIME, statusCode=500, path=/api/payments, env=prod
-```
-
-If you send a non-matching event (for example, `statusCode: 200`), no `NOTIFICATION FIRED` line should appear, confirming the rule evaluation is working correctly.
-
----
-
-## How to Test the Batch Pipeline
-
-### 1. Build and run the application
-
-Same as for the realtime pipeline:
-
-```bash
-mvn clean package
-java -jar target/api-event-pipeline-0.0.1-SNAPSHOT.jar
-```
-
-By default, the batch scheduler flushes every 10 minutes (`pipeline.batch.flush-interval-ms`).
-
-To speed up manual testing, you can override this for a single run:
-
-```bash
-export SPRING_APPLICATION_JSON='{"pipeline":{"batch":{"flush-interval-ms":10000}}}'
-java -jar target/api-event-pipeline-0.0.1-SNAPSHOT.jar
-```
-
-### 2. Ingest some events
-
-Send a few events for a tenant (they automatically go to the batch queue via the `EventBus`):
-
-```bash
-for i in {1..5}; do
+for i in 1 2 3; do
   curl -s -X POST "http://localhost:8080/api/v1/events" \
     -H "Content-Type: application/json" \
     -H "X-Tenant-Id: tenant-1" \
     -d '{
-      "timestamp": "2026-02-26T12:00:00Z",
-      "request": {
-        "method": "GET",
-        "host": "api.example.com",
-        "path": "/api/payments",
-        "queryString": "page=1",
-        "headers": {"Content-Type": "application/json"},
-        "body": "{\"amount\":100}",
-        "sizeBytes": 20
-      },
-      "response": {
-        "statusCode": 200,
-        "responseTimeMs": 150,
-        "headers": {},
-        "body": "{}",
-        "sizeBytes": 2
-      },
-      "metadata": {
-        "serviceId": "svc-1",
-        "serviceName": "payment-svc",
-        "environment": "prod",
-        "region": "us-east-1",
-        "hostIp": "127.0.0.1",
-        "traceId": "trace-1",
-        "tags": {"team": "payments"}
-      }
-    }' >/dev/null
+      "timestamp": "2026-02-26T12:40:00Z",
+      "request": { "method": "POST", "host": "api.example.com", "path": "/api/orders" },
+      "response": { "statusCode": 503, "responseTimeMs": 250 },
+      "metadata": { "serviceId": "order-svc", "environment": "prod", "region": "us-east-1" }
+    }'
+  echo " -> event $i sent"
 done
 ```
 
-### 3. Wait for the batch flush
+### Verify
 
-Wait a bit longer than the configured interval (for example, 20–30 seconds if using a 10s interval).  
-In the application logs you should see a message similar to:
+Wait ~20 seconds (5s for flush + 15s for aggregation). In the logs you should see:
 
-```text
-BatchWriter flushed 5 events into 1 Parquet file(s)
+```
+Batch rule 'High 5xx rate': count=3, threshold=2
+BATCH THRESHOLD BREACHED: tenantId=tenant-1, ruleName=High 5xx rate, threshold=2, actualCount=3, windowMinutes=60
 ```
 
-### 4. Inspect batch output files
+---
 
-Batch files are written under a tenant and date partitioned directory structure:
+## Unit Tests
 
 ```bash
-BASE=/tmp/api-event-pipeline/batch-events
-find "$BASE" -type f -name '*.jsonl'
+mvn clean test
 ```
 
-You should see paths similar to:
-
-```text
-/tmp/api-event-pipeline/batch-events/tenant_id=tenant-1/year=2026/month=02/day=26/events-<timestamp>-<uuid>.jsonl
-```
-
-Inspect a few rows:
-
-```bash
-head -n 5 /tmp/api-event-pipeline/batch-events/tenant_id=tenant-1/year=2026/month=02/day=26/events-*.jsonl
-```
-
-Each line is a flattened JSON object representing a single API event, with fields such as `event_id`, `tenant_id`, `timestamp`, `status_code`, `response_time_ms`, and environment/region/service metadata. This confirms that the batch pipeline is draining the queue and persisting time-series data correctly.
-
-## How to Test the Realtime Pipeline
-
-### 1. Build and run the application
-
-From the project root:
-
-```bash
-mvn clean package
-java -jar target/api-event-pipeline-0.0.1-SNAPSHOT.jar
-```
-
-The app starts on `http://localhost:8080`.
-
-### 2. Create a realtime rule
-
-In a new terminal, create a simple "any 5xx" realtime rule for `tenant-1`:
-
-```bash
-curl -s -X POST "http://localhost:8080/api/v1/tenants/tenant-1/rules" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": null,
-    "tenantId": null,
-    "name": "Any 5xx",
-    "type": "REALTIME",
-    "enabled": true,
-    "groupOperator": "AND",
-    "conditionGroups": [{
-      "operator": "AND",
-      "conditions": [
-        { "field": "RESPONSE_STATUS_CODE", "operator": "GREATER_THAN_OR_EQUAL", "value": "500" }
-      ]
-    }],
-    "notificationConfig": { "channel": "LOG", "destination": "console" },
-    "createdAt": null,
-    "updatedAt": null
-  }'
-```
-
-You should get back the created rule as JSON.
-
-### 3. Ingest an event that should fire the rule
-
-Send an event for `tenant-1` with a 5xx status:
-
-```bash
-curl -s -X POST "http://localhost:8080/api/v1/events" \
-  -H "Content-Type: application/json" \
-  -H "X-Tenant-Id: tenant-1" \
-  -d '{
-    "timestamp": "2026-02-26T12:00:00Z",
-    "request": {
-      "method": "GET",
-      "host": "api.example.com",
-      "path": "/api/payments",
-      "queryString": "page=1",
-      "headers": {"Content-Type": "application/json"},
-      "body": "{\"amount\":100}",
-      "sizeBytes": 20
-    },
-    "response": {
-      "statusCode": 500,
-      "responseTimeMs": 200,
-      "headers": {},
-      "body": "{\"error\":\"internal\"}",
-      "sizeBytes": 10
-    },
-    "metadata": {
-      "serviceId": "svc-1",
-      "serviceName": "payment-svc",
-      "environment": "prod",
-      "region": "us-east-1",
-      "hostIp": "127.0.0.1",
-      "traceId": "trace-1",
-      "tags": {"team": "payments"}
-    }
-  }'
-```
-
-Response should be `202 Accepted` with a JSON body containing an `eventId`.
-
-### 4. Verify notifications in logs
-
-In the terminal where the JAR is running, you should see log lines similar to:
-
-```text
-NOTIFICATION FIRED: tenantId=tenant-1, ruleName=Any 5xx, ruleType=REALTIME, statusCode=500, path=/api/payments, env=prod
-```
-
-If you send a non-matching event (for example, `statusCode: 200`), no `NOTIFICATION FIRED` line should appear, confirming the rule evaluation is working correctly.
-
+Requires Java 17 (Mockito/Byte Buddy does not support JDK 25+).

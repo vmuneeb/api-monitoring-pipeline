@@ -226,6 +226,8 @@ class RealtimeRuleEvaluatorTest {
         groupOperator,
         groups,
         new NotificationConfigDto("LOG", "console"),
+        null,
+        null,
         Instant.now(),
         Instant.now()
     );

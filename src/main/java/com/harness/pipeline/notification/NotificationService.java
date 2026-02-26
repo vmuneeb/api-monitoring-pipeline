@@ -6,5 +6,6 @@ import com.harness.pipeline.model.RuleDto;
 public interface NotificationService {
 
   void notify(ApiEvent event, RuleDto rule);
-}
 
+  void notifyBatchThresholdBreached(RuleDto rule, long count);
+}

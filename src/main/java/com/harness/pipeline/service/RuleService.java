@@ -39,10 +39,18 @@ public class RuleService {
     entity.setGroupOperator(request.groupOperator());
     entity.setConditionsJson(serializeConditions(request.conditionGroups()));
     entity.setNotificationJson(serializeNotification(request.notificationConfig()));
+    entity.setWindowMinutes(request.windowMinutes());
+    entity.setCountThreshold(request.countThreshold());
     entity.setCreatedAt(now);
     entity.setUpdatedAt(now);
     RuleEntity saved = repository.save(entity);
     return toDto(saved);
+  }
+
+  @Transactional(readOnly = true)
+  public List<RuleDto> listAllEnabledByType(RuleType type) {
+    return repository.findByTypeAndEnabled(type, true)
+        .stream().map(this::toDto).toList();
   }
 
   @Transactional(readOnly = true)
@@ -73,6 +81,8 @@ public class RuleService {
           request.groupOperator() != null ? request.groupOperator() : ConditionGroupOperator.AND);
       existing.setConditionsJson(serializeConditions(request.conditionGroups()));
       existing.setNotificationJson(serializeNotification(request.notificationConfig()));
+      existing.setWindowMinutes(request.windowMinutes());
+      existing.setCountThreshold(request.countThreshold());
       existing.setUpdatedAt(Instant.now());
       return toDto(repository.save(existing));
     });
@@ -148,6 +158,8 @@ public class RuleService {
         entity.getGroupOperator(),
         deserializeConditions(entity.getConditionsJson()),
         deserializeNotification(entity.getNotificationJson()),
+        entity.getWindowMinutes(),
+        entity.getCountThreshold(),
         entity.getCreatedAt(),
         entity.getUpdatedAt()
     );
