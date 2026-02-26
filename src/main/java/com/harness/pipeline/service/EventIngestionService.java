@@ -2,16 +2,31 @@ package com.harness.pipeline.service;
 
 import com.harness.pipeline.model.ApiEvent;
 import com.harness.pipeline.model.ApiEventRequest;
+import com.harness.pipeline.pipeline.queue.EventBus;
 import java.time.Instant;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EventIngestionService {
 
+  private static final Logger log = LoggerFactory.getLogger(EventIngestionService.class);
+
+  private final EventBus eventBus;
+
+  public EventIngestionService(EventBus eventBus) {
+    this.eventBus = eventBus;
+  }
+
   public String ingestEvent(String tenantId, ApiEventRequest request) {
     ApiEvent event = toDomainEvent(tenantId, request);
-    // In a later commit we will route this event into the realtime and batch pipelines.
+    boolean acceptedRealtime = eventBus.publish(event);
+    if (!acceptedRealtime) {
+      log.warn("Realtime queue full, event routed to batch only. tenantId={}, eventId={}",
+          tenantId, event.eventId());
+    }
     return event.eventId();
   }
 
