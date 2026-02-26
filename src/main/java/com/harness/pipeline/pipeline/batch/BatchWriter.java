@@ -39,7 +39,7 @@ public class BatchWriter {
   }
 
   /**
-   * Drain all currently available events from the batch queue and write them to Parquet
+   * Drain all currently available events from the batch queue and write them to JSONL
    * files partitioned by tenant and event date.
    */
   public void flushAllFromQueue() {
@@ -73,11 +73,11 @@ public class BatchWriter {
         writePartition(partitionPath, events);
         fileCount++;
       } catch (IOException e) {
-        log.error("Failed to write Parquet file for partition {}", partitionPath, e);
+        log.error("Failed to write JSONL file for partition {}", partitionPath, e);
       }
     }
 
-    log.info("BatchWriter flushed {} events into {} Parquet file(s)", drained.size(), fileCount);
+    log.info("BatchWriter flushed {} events into {} JSONL file(s)", drained.size(), fileCount);
   }
 
   private Map<String, List<ApiEvent>> groupByTenantAndDate(List<ApiEvent> events) {

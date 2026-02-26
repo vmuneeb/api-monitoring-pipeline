@@ -15,9 +15,11 @@ spring:
     open-in-view: false
   sql:
     init:
-      mode: embedded
+      mode: always
 
 pipeline:
+  realtime:
+    worker-count: 2
   queue:
     realtime-capacity: 10000
     batch-capacity: 50000

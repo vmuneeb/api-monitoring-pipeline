@@ -48,6 +48,11 @@ public class RuleService {
   }
 
   @Transactional(readOnly = true)
+  public List<RuleDto> listAllRules() {
+    return repository.findAll().stream().map(this::toDto).toList();
+  }
+
+  @Transactional(readOnly = true)
   public List<RuleDto> listAllEnabledByType(RuleType type) {
     return repository.findByTypeAndEnabled(type, true)
         .stream().map(this::toDto).toList();

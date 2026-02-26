@@ -244,6 +244,8 @@ All configurable via `application.yml` or command-line overrides:
 
 ```yaml
 pipeline:
+  realtime:
+    worker-count: 2                   # number of realtime worker threads
   queue:
     realtime-capacity: 10000          # offer() drops if full
     batch-capacity: 50000             # put() blocks if full

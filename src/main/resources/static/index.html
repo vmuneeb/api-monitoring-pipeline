@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>API Event Pipeline — Notifications</title>
+  <title>API Event Pipeline</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -23,11 +23,7 @@
       justify-content: space-between;
     }
 
-    header h1 {
-      font-size: 18px;
-      font-weight: 600;
-      color: #f0f6fc;
-    }
+    header h1 { font-size: 18px; font-weight: 600; color: #f0f6fc; }
 
     .status {
       display: flex;
@@ -38,26 +34,40 @@
     }
 
     .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #f85149;
-      transition: background 0.3s;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #f85149; transition: background 0.3s;
     }
 
     .status-dot.connected { background: #3fb950; }
 
-    .container {
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 24px 16px;
+    .container { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #30363d;
     }
 
-    .stats {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 20px;
+    .tab {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #8b949e;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
     }
+
+    .tab:hover { color: #e1e4e8; }
+    .tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Stats */
+    .stats { display: flex; gap: 12px; margin-bottom: 20px; }
 
     .stat-card {
       flex: 1;
@@ -68,36 +78,24 @@
     }
 
     .stat-card .label {
-      font-size: 12px;
-      color: #8b949e;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      font-size: 12px; color: #8b949e;
+      text-transform: uppercase; letter-spacing: 0.5px;
     }
 
-    .stat-card .value {
-      font-size: 28px;
-      font-weight: 700;
-      margin-top: 4px;
-    }
-
+    .stat-card .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
     .stat-card.realtime .value { color: #f85149; }
     .stat-card.batch .value { color: #d29922; }
     .stat-card.total .value { color: #58a6ff; }
 
+    /* Feed */
     .feed-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 12px;
     }
 
-    .feed-header h2 {
-      font-size: 15px;
-      font-weight: 600;
-      color: #f0f6fc;
-    }
+    .feed-header h2 { font-size: 15px; font-weight: 600; color: #f0f6fc; }
 
-    .btn-clear {
+    .btn-small {
       background: transparent;
       border: 1px solid #30363d;
       color: #8b949e;
@@ -108,30 +106,18 @@
       transition: all 0.2s;
     }
 
-    .btn-clear:hover {
-      border-color: #8b949e;
-      color: #e1e4e8;
-    }
+    .btn-small:hover { border-color: #8b949e; color: #e1e4e8; }
 
-    #feed {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    #feed { display: flex; flex-direction: column; gap: 8px; }
 
     .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: #484f58;
-      font-size: 14px;
+      text-align: center; padding: 60px 20px;
+      color: #484f58; font-size: 14px;
     }
 
-    .empty-state .icon {
-      font-size: 40px;
-      margin-bottom: 12px;
-      opacity: 0.5;
-    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
 
+    /* Cards (notifications + rules) */
     .card {
       background: #161b22;
       border: 1px solid #30363d;
@@ -150,47 +136,27 @@
     }
 
     .card-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 6px;
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 6px;
     }
 
     .card-top .badge {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
+      font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 10px;
+      text-transform: uppercase; letter-spacing: 0.3px;
     }
 
     .badge.REALTIME { background: rgba(248,81,73,0.15); color: #f85149; }
     .badge.BATCH { background: rgba(210,153,34,0.15); color: #d29922; }
+    .badge.enabled { background: rgba(63,185,80,0.15); color: #3fb950; }
+    .badge.disabled { background: rgba(139,148,158,0.15); color: #8b949e; }
 
-    .card-top .time {
-      font-size: 12px;
-      color: #484f58;
-    }
+    .card-top .time { font-size: 12px; color: #484f58; }
 
-    .card-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: #f0f6fc;
-      margin-bottom: 4px;
-    }
+    .card-title { font-size: 14px; font-weight: 600; color: #f0f6fc; margin-bottom: 4px; }
+    .card-message { font-size: 13px; color: #8b949e; margin-bottom: 8px; }
 
-    .card-message {
-      font-size: 13px;
-      color: #8b949e;
-      margin-bottom: 8px;
-    }
-
-    .card-details {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
+    .card-details { display: flex; flex-wrap: wrap; gap: 6px; }
 
     .detail-tag {
       font-size: 12px;
@@ -200,6 +166,22 @@
       padding: 2px 8px;
       border-radius: 4px;
       font-family: 'SFMono-Regular', Consolas, monospace;
+    }
+
+    /* Rules list */
+    #rules-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .rule-conditions {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      color: #8b949e;
+      max-height: 120px;
+      overflow-y: auto;
     }
   </style>
 </head>
@@ -213,30 +195,49 @@
   </header>
 
   <div class="container">
-    <div class="stats">
-      <div class="stat-card total">
-        <div class="label">Total Alerts</div>
-        <div class="value" id="countTotal">0</div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('notifications')">Notifications</div>
+      <div class="tab" onclick="switchTab('rules')">Rules</div>
+    </div>
+
+    <!-- Notifications Tab -->
+    <div id="tab-notifications" class="tab-content active">
+      <div class="stats">
+        <div class="stat-card total">
+          <div class="label">Total Alerts</div>
+          <div class="value" id="countTotal">0</div>
+        </div>
+        <div class="stat-card realtime">
+          <div class="label">Realtime</div>
+          <div class="value" id="countRealtime">0</div>
+        </div>
+        <div class="stat-card batch">
+          <div class="label">Batch</div>
+          <div class="value" id="countBatch">0</div>
+        </div>
       </div>
-      <div class="stat-card realtime">
-        <div class="label">Realtime Alerts</div>
-        <div class="value" id="countRealtime">0</div>
+
+      <div class="feed-header">
+        <h2>Live Notifications</h2>
+        <button class="btn-small" onclick="clearFeed()">Clear</button>
       </div>
-      <div class="stat-card batch">
-        <div class="label">Batch Alerts</div>
-        <div class="value" id="countBatch">0</div>
+
+      <div id="feed">
+        <div class="empty-state" id="emptyState">
+          <div class="icon">&#128276;</div>
+          <div>No notifications yet. Waiting for events...</div>
+        </div>
       </div>
     </div>
 
-    <div class="feed-header">
-      <h2>Live Notifications</h2>
-      <button class="btn-clear" onclick="clearFeed()">Clear</button>
-    </div>
-
-    <div id="feed">
-      <div class="empty-state" id="emptyState">
-        <div class="icon">&#128276;</div>
-        <div>No notifications yet. Waiting for events...</div>
+    <!-- Rules Tab -->
+    <div id="tab-rules" class="tab-content">
+      <div class="feed-header">
+        <h2>All Rules</h2>
+        <button class="btn-small" onclick="loadRules()">Refresh</button>
+      </div>
+      <div id="rules-list">
+        <div class="empty-state">Loading rules...</div>
       </div>
     </div>
   </div>
@@ -245,17 +246,21 @@
     let realtimeCount = 0;
     let batchCount = 0;
 
-    function formatTime(ts) {
-      const d = new Date(ts);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    function switchTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('tab-' + name).classList.add('active');
+      if (name === 'rules') loadRules();
     }
 
-    function renderCard(n) {
-      const details = n.details || {};
-      const tags = Object.entries(details)
-        .map(([k, v]) => `<span class="detail-tag">${k}: ${v}</span>`)
-        .join('');
+    function formatTime(ts) {
+      return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
 
+    function renderNotificationCard(n) {
+      const tags = Object.entries(n.details || {})
+        .map(([k, v]) => `<span class="detail-tag">${k}: ${v}</span>`).join('');
       return `
         <div class="card ${n.type}">
           <div class="card-top">
@@ -268,6 +273,36 @@
         </div>`;
     }
 
+    function renderRuleCard(r) {
+      const status = r.enabled ? 'enabled' : 'disabled';
+      const batchInfo = r.type === 'BATCH'
+        ? `<span class="detail-tag">window: ${r.windowMinutes || '-'}m</span>
+           <span class="detail-tag">threshold: ${r.countThreshold || '-'}</span>`
+        : '';
+      const conditions = (r.conditionGroups || []).map(g => {
+        const op = g.operator || 'AND';
+        return g.conditions.map(c => `${c.field} ${c.operator} ${c.value}`).join(` ${op} `);
+      }).join(` ${r.groupOperator || 'AND'} `);
+
+      return `
+        <div class="card ${r.type}">
+          <div class="card-top">
+            <div style="display:flex;gap:6px;">
+              <span class="badge ${r.type}">${r.type}</span>
+              <span class="badge ${status}">${status}</span>
+            </div>
+            <span class="time">${r.tenantId}</span>
+          </div>
+          <div class="card-title">${r.name}</div>
+          <div class="card-details">
+            <span class="detail-tag">id: ${r.id}</span>
+            <span class="detail-tag">group: ${r.groupOperator || 'AND'}</span>
+            ${batchInfo}
+          </div>
+          <div class="rule-conditions">${conditions || 'No conditions'}</div>
+        </div>`;
+    }
+
     function updateCounts() {
       document.getElementById('countTotal').textContent = realtimeCount + batchCount;
       document.getElementById('countRealtime').textContent = realtimeCount;
@@ -277,62 +312,56 @@
     function addNotification(n) {
       const empty = document.getElementById('emptyState');
       if (empty) empty.remove();
-
       if (n.type === 'REALTIME') realtimeCount++;
       else if (n.type === 'BATCH') batchCount++;
       updateCounts();
-
       const feed = document.getElementById('feed');
       const div = document.createElement('div');
-      div.innerHTML = renderCard(n);
+      div.innerHTML = renderNotificationCard(n);
       feed.prepend(div.firstElementChild);
-
-      while (feed.children.length > 100) {
-        feed.removeChild(feed.lastChild);
-      }
+      while (feed.children.length > 100) feed.removeChild(feed.lastChild);
     }
 
     function clearFeed() {
-      const feed = document.getElementById('feed');
-      feed.innerHTML = `
+      document.getElementById('feed').innerHTML = `
         <div class="empty-state" id="emptyState">
           <div class="icon">&#128276;</div>
           <div>No notifications yet. Waiting for events...</div>
         </div>`;
-      realtimeCount = 0;
-      batchCount = 0;
-      updateCounts();
+      realtimeCount = 0; batchCount = 0; updateCounts();
+    }
+
+    function loadRules() {
+      const list = document.getElementById('rules-list');
+      list.innerHTML = '<div class="empty-state">Loading rules...</div>';
+      fetch('/api/v1/rules')
+        .then(r => r.json())
+        .then(rules => {
+          if (rules.length === 0) {
+            list.innerHTML = '<div class="empty-state"><div class="icon">&#128220;</div><div>No rules configured yet.</div></div>';
+            return;
+          }
+          list.innerHTML = rules.map(renderRuleCard).join('');
+        })
+        .catch(() => {
+          list.innerHTML = '<div class="empty-state">Failed to load rules.</div>';
+        });
     }
 
     function connectSSE() {
       const dot = document.getElementById('statusDot');
       const text = document.getElementById('statusText');
-
       const source = new EventSource('/api/v1/notifications/stream');
-
       source.addEventListener('notification', function(e) {
-        const n = JSON.parse(e.data);
-        addNotification(n);
+        addNotification(JSON.parse(e.data));
       });
-
-      source.onopen = function() {
-        dot.classList.add('connected');
-        text.textContent = 'Connected';
-      };
-
-      source.onerror = function() {
-        dot.classList.remove('connected');
-        text.textContent = 'Reconnecting...';
-      };
+      source.onopen = function() { dot.classList.add('connected'); text.textContent = 'Connected'; };
+      source.onerror = function() { dot.classList.remove('connected'); text.textContent = 'Reconnecting...'; };
     }
 
-    // Load existing notifications on page load
     fetch('/api/v1/notifications')
       .then(r => r.json())
-      .then(list => {
-        list.reverse().forEach(addNotification);
-        connectSSE();
-      })
+      .then(list => { list.reverse().forEach(addNotification); connectSSE(); })
       .catch(() => connectSSE());
   </script>
 </body>

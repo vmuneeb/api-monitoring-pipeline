@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,21 +20,23 @@ public class RealtimeWorkerPool {
   private final EventBus eventBus;
   private final RuleService ruleService;
   private final NotificationService notificationService;
+  private final int workerCount;
 
   private final List<RealtimeWorker> workers = new ArrayList<>();
   private final List<Thread> threads = new ArrayList<>();
 
   public RealtimeWorkerPool(EventBus eventBus,
                             RuleService ruleService,
-                            NotificationService notificationService) {
+                            NotificationService notificationService,
+                            @Value("${pipeline.realtime.worker-count:2}") int workerCount) {
     this.eventBus = eventBus;
     this.ruleService = ruleService;
     this.notificationService = notificationService;
+    this.workerCount = workerCount;
   }
 
   @PostConstruct
   public void start() {
-    int workerCount = 2; // simple fixed number, could come from config
     for (int i = 0; i < workerCount; i++) {
       RealtimeWorker worker = new RealtimeWorker(eventBus, ruleService, notificationService);
       Thread thread = new Thread(worker, "realtime-worker-" + i);

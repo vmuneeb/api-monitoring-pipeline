@@ -9,9 +9,13 @@
 mvn clean package -DskipTests
 ```
 
-Open `http://localhost:8080` in a browser to see the **live notification dashboard** alongside console logs.
+Open `http://localhost:8080` in a browser to see the **live dashboard** alongside console logs. The dashboard has two tabs:
+
+- **Notifications** — live SSE feed of realtime and batch alerts
+- **Rules** — view all configured rules across tenants
 
 ![Dashboard](docs/dashboard.png)
+![Rules Dashboard](docs/rules-dashboard.png)
 
 ---
 
@@ -133,14 +137,15 @@ This flushes events to disk every 5s and runs batch rule aggregation every 15s.
 curl -s -X POST "http://localhost:8080/api/v1/tenants/tenant-1/rules" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "High 5xx rate",
+    "name": "Health Check failing",
     "type": "BATCH",
     "enabled": true,
     "groupOperator": "AND",
     "conditionGroups": [{
       "operator": "AND",
       "conditions": [
-        { "field": "RESPONSE_STATUS_CODE", "operator": "GREATER_THAN_OR_EQUAL", "value": "500" }
+        { "field": "RESPONSE_STATUS_CODE", "operator": "NOT_EQUALS", "value": "200" },
+        { "field": "REQUEST_PATH", "operator": "EQUALS", "value": "/health" }
       ]
     }],
     "notificationConfig": { "channel": "LOG", "destination": "console" },
@@ -149,7 +154,7 @@ curl -s -X POST "http://localhost:8080/api/v1/tenants/tenant-1/rules" \
   }' | python3 -m json.tool
 ```
 
-This rule says: "if there are >= 2 events with status code >= 500 in the last 60 minutes, fire a notification."
+This rule says: "if there are >= 2 events with status code != 200 hitting `/health` in the last 60 minutes, fire a notification."
 
 ### Send matching events
 
@@ -160,8 +165,8 @@ for i in 1 2 3; do
     -H "X-Tenant-Id: tenant-1" \
     -d '{
       "timestamp": "2026-02-26T12:40:00Z",
-      "request": { "method": "POST", "host": "api.example.com", "path": "/api/orders" },
-      "response": { "statusCode": 503, "responseTimeMs": 250 },
+      "request": { "method": "POST", "host": "api.example.com", "path": "/health" },
+      "response": { "statusCode": 400, "responseTimeMs": 250 },
       "metadata": { "serviceId": "order-svc", "environment": "prod", "region": "us-east-1" }
     }'
   echo " -> event $i sent"
@@ -175,8 +180,8 @@ Wait ~20 seconds (5s for flush + 15s for aggregation).
 **Console:** you should see:
 
 ```
-Batch rule 'High 5xx rate': count=3, threshold=2
-BATCH THRESHOLD BREACHED: tenantId=tenant-1, ruleName=High 5xx rate, threshold=2, actualCount=3, windowMinutes=60
+Batch rule 'Health Check failing': count=3, threshold=2
+BATCH THRESHOLD BREACHED: tenantId=tenant-1, ruleName=Health Check failing, threshold=2, actualCount=3, windowMinutes=60
 ```
 
 **Dashboard:** an orange BATCH card appears at `http://localhost:8080` showing the threshold breach details.

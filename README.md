@@ -16,29 +16,29 @@ A multi-tenant API event monitoring pipeline built with Spring Boot. Ingests HTT
                          │              ┌──────────────-┘      └──────┐     │
                          │              ▼                            ▼      │
                          │  ┌──────────────────┐      ┌──────────────────┐  │
-                         │  │ Realtime Workers  │      │  Batch Writer    │ │
-                         │  │ (thread pool)     │      │  (scheduled)     │ │
+                         │  │ Realtime Workers │      │  Batch Writer    │  │
+                         │  │ (thread pool)    │      │  (scheduled)     │  │
                          │  └────────┬─────────┘      └────────┬─────────┘  │
                          │           │                          │           │
                          │           ▼                          ▼           │
                          │  ┌──────────────────┐      ┌──────────────────┐  │
-                         │  │ Rule Evaluator    │      │  JSONL Files    │  │
-                         │  │ (per-event)       │      │  (partitioned)  │  │
+                         │  │ Rule Evaluator   │      │  JSONL Files     │  │
+                         │  │ (per-event)      │      │  (partitioned)   │  │
                          │  └────────┬─────────┘      └────────┬─────────┘  │
                          │           │                          │           │
                          │           │                          ▼           │ 
                          │           │                ┌──────────────────┐  │
-                         │           │                │ Batch Aggregator │ │
-                         │           │                │ (DuckDB COUNT(*))│ │
-                         │           │                └────────┬─────────┘ │
-                         │           ▼                         ▼          │
-                         │  ┌──────────────────────────────────────────┐  │
-                         │  │         Notification Service             │  │
-                         │  │    (log + in-memory buffer + SSE)        │  │
-                         │  └──────────────────┬───────────────────────┘  │
-                         │                     │                          │
-                         └─────────────────────┼──────────────────────────┘
-                                               ▼
+                         │           │                │ Batch Aggregator │  │
+                         │           │                │ (DuckDB COUNT(*))│  │
+                         │           │                └────────┬─────────┘  │
+                         │           ▼                         ▼            │
+                         │  ┌──────────────────────────────────────────┐    │
+                         │  │         Notification Service             │    │
+                         │  │    (log + in-memory buffer + SSE)        │    │
+                         │  └──────────────────┬───────────────────────┘    │
+                         │                     │                            │
+                         └─────────────────────┼────────────────────────────┘
+                                               ▼ 
                                     ┌────────────────────┐
                                     │   Live Dashboard   │
                                     │  (localhost:8080)  │
@@ -61,9 +61,10 @@ A multi-tenant API event monitoring pipeline built with Spring Boot. Ingests HTT
   | `NotificationService` | `LoggingNotificationService` (console + SSE) | PagerDuty, Slack, webhooks |
   | Batch storage | JSONL files on local disk | S3/GCS + Parquet/Iceberg |
   | Batch aggregation | DuckDB over JSONL | Spark, Flink, or Trino over a data lake |
-  | Rule DB | H2 in-memory | PostgreSQL, MySQL |
+  | Rule DB | H2 (file-based) | PostgreSQL, MySQL |
 
 - Two-level AND/OR condition logic (condition groups joined by a top-level operator, conditions within each group joined by the group's operator).
+- **Configurable worker pool** — the number of realtime worker threads is controlled via `pipeline.realtime.worker-count` in `application.yml` (default: 2). Increase it to scale event processing throughput on multi-core machines.
 
 ## Prerequisites
 
@@ -89,14 +90,17 @@ mvn clean package -DskipTests
 java -jar target/api-event-pipeline-0.0.1-SNAPSHOT.jar
 ```
 
-The app starts on `http://localhost:8080`. The notification dashboard is served at the root URL.
+The app starts on `http://localhost:8080`. The dashboard is served at the root URL with two tabs: **Notifications** (live SSE feed) and **Rules** (all configured rules).
 
 ![Notification Dashboard](docs/dashboard.png)
 
-To override defaults for faster manual testing:
+![Rules Dashboard](docs/rules-dashboard.png)
+
+To override defaults (e.g. faster flush for testing or more workers for throughput):
 
 ```bash
 java -jar target/api-event-pipeline-0.0.1-SNAPSHOT.jar \
+  --pipeline.realtime.worker-count=4 \
   --pipeline.batch.flush-interval-ms=5000 \
   --pipeline.batch.aggregation-interval-ms=15000
 ```
@@ -122,6 +126,7 @@ See [HOW_TO_TEST.md](HOW_TO_TEST.md) for step-by-step curl commands to exercise:
 | DELETE | `/api/v1/tenants/{tenantId}/rules/{id}` | Delete a rule |
 | PATCH | `/api/v1/tenants/{tenantId}/rules/{id}/enable` | Enable a rule |
 | PATCH | `/api/v1/tenants/{tenantId}/rules/{id}/disable` | Disable a rule |
+| GET | `/api/v1/rules` | List all rules (across all tenants) |
 | GET | `/api/v1/notifications` | Recent notifications (JSON) |
 | GET | `/api/v1/notifications/stream` | Live notification stream (SSE) |
 
@@ -132,8 +137,10 @@ See [HOW_TO_TEST.md](HOW_TO_TEST.md) for step-by-step curl commands to exercise:
 - **No event deduplication** — the pipeline assumes each ingested event is unique. In production, idempotency keys and deduplication at the bus layer (e.g., Kafka consumer offsets) would handle retries.
 - **Batch rules re-fire each cycle** — there is no cool-down tracking, so a breached threshold will fire again on the next aggregation run until the window moves past the offending events. Acceptable for a demo; production would track `lastFiredAt` per rule.
 - **DuckDB runs in-process** — each aggregation cycle opens a fresh in-memory DuckDB connection and scans JSONL files directly. This works well for moderate data volumes but would be replaced by a persistent query engine (Spark/Trino) at scale.
-- **H2 in-memory database** — rules are lost on restart. The schema is designed for PostgreSQL compatibility (`MODE=PostgreSQL`) so switching is a config change.
+- **H2 file-based database** — rules persist across restarts (stored in `./data/pipeline`). The schema is designed for PostgreSQL compatibility (`MODE=PostgreSQL`) so switching is a config change.
+- **JSONL over Parquet** — batch events are stored as newline-delimited JSON for easy human inspection and debugging during development. DuckDB queries JSONL natively, so switching to Parquet is a trivial change in `BatchWriter` (swap `ObjectMapper` for a Parquet writer) with no impact on the aggregation pipeline.
 - **Flat JSONL schema** — nested event fields (headers, tags) are not written to batch files. This keeps the DuckDB queries simple but limits what batch rules can filter on. Extending the schema is straightforward.
+- **Shared-process multi-tenancy** — tenant data is logically separated (tenant ID on rules, events, partitioned batch files) but all tenants share the same worker pool, queues, and database. There is no per-tenant resource isolation, rate limiting, or access control. A noisy tenant can affect others.
 
 ## What I Would Improve in V2
 
@@ -143,5 +150,5 @@ See [HOW_TO_TEST.md](HOW_TO_TEST.md) for step-by-step curl commands to exercise:
 - **Notification channels** — plug in Slack, PagerDuty, or webhook destinations behind the `NotificationService` interface.
 - **Batch cool-down** — track last-fired timestamp per rule to suppress repeated threshold notifications.
 - **Rule versioning** — audit trail for rule changes with effective-from timestamps.
-- **Auth & tenant isolation** — API key or JWT-based authentication with tenant-scoped access control.
+- **Tenant isolation** — introduce per-tenant queues, dedicated worker pools, and tenant-scoped database schemas (or separate databases) so tenants can be independently scaled up/down and one tenant's load cannot impact another. Add API key or JWT-based authentication with tenant-scoped access control to enforce security boundaries.
 - **Observability** — Prometheus metrics for queue depths, rule evaluation latency, and notification delivery rates.
