@@ -17,6 +17,11 @@ spring:
     init:
       mode: embedded
 
+pipeline:
+  batch:
+    base-path: /tmp/api-event-pipeline/batch-events
+    flush-interval-ms: 600000
+
 management:
   endpoints:
     web:
