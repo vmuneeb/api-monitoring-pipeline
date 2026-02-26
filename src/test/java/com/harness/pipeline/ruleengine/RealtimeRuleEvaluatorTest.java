@@ -20,7 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 class RealtimeRuleEvaluatorTest {
 
@@ -162,31 +162,6 @@ class RealtimeRuleEvaluatorTest {
     assertThat(fired).isEmpty();
   }
 
-  @Test
-  void aggregateFieldsInRealtimeExtractorThrow() {
-    ApiEvent event = demoEvent(500, "/api/payments", "prod");
-
-    ConditionDto aggregateCondition = new ConditionDto(
-        RuleConditionField.AGGREGATE_ERROR_RATE_PERCENT,
-        RuleOperator.GREATER_THAN,
-        "5.0"
-    );
-    ConditionGroupDto group = new ConditionGroupDto(
-        ConditionGroupOperator.AND,
-        List.of(aggregateCondition)
-    );
-    RuleDto rule = baseRule(
-        "Invalid aggregate rule",
-        RuleType.REALTIME,
-        true,
-        ConditionGroupOperator.AND,
-        List.of(group)
-    );
-
-    assertThatThrownBy(() -> evaluator.evaluate(event, List.of(rule)))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("Aggregate fields are not supported");
-  }
 
   @Test
   void applyOperatorHandlesEmptyResults() {

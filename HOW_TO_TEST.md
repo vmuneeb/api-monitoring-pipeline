@@ -173,6 +173,12 @@ BATCH THRESHOLD BREACHED: tenantId=tenant-1, ruleName=High 5xx rate, threshold=2
 
 ---
 
+## 4. Notification Dashboard
+
+Open `http://localhost:8080` in a browser while the app is running. Notifications from both realtime and batch pipelines appear as live cards via SSE. Use the curl commands from sections above to trigger events.
+
+---
+
 ## Unit Tests
 
 ```bash

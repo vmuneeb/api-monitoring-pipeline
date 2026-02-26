@@ -18,6 +18,9 @@ spring:
       mode: embedded
 
 pipeline:
+  queue:
+    realtime-capacity: 10000
+    batch-capacity: 50000
   batch:
     base-path: /tmp/api-event-pipeline/batch-events
     flush-interval-ms: 600000

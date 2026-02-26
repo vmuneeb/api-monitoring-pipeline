@@ -29,8 +29,6 @@ public class EventFieldExtractor {
         String key = extractKey(conditionValue);
         yield request != null ? getFromMap(request.headers(), key) : null;
       }
-      case REQUEST_BODY -> request != null ? request.body() : null;
-
       case RESPONSE_STATUS_CODE -> response != null && response.statusCode() != null
           ? Integer.toString(response.statusCode())
           : null;
@@ -50,12 +48,6 @@ public class EventFieldExtractor {
         yield metadata != null ? getFromMap(metadata.tags(), key) : null;
       }
 
-      case AGGREGATE_ERROR_RATE_PERCENT,
-           AGGREGATE_P99_RESPONSE_TIME_MS,
-           AGGREGATE_REQUEST_COUNT,
-           AGGREGATE_DISTINCT_PATHS_COUNT ->
-          throw new IllegalArgumentException(
-              "Aggregate fields are not supported in realtime event extraction: " + field);
     };
   }
 

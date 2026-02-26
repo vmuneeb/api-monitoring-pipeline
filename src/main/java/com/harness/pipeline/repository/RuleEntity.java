@@ -3,7 +3,6 @@ package com.harness.pipeline.repository;
 import com.harness.pipeline.enums.ConditionGroupOperator;
 import com.harness.pipeline.enums.RuleType;
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -40,7 +39,6 @@ public class RuleEntity {
 
   @Lob
   @Column(name = "conditions_json", nullable = false)
-  @Convert(converter = RuleJsonConverter.class)
   private String conditionsJson;
 
   @Lob
